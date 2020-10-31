@@ -31,7 +31,7 @@ void Server::finalizerCallback(Napi::Env env, void *, ServerContext *context) {
 }
 
 void Server::runServer(ServerContext *context, int port) {
-    std::unordered_set<SSL *> clients;
+    std::unordered_map<SSL *, std::string> clients;
 
     auto callback = [](Napi::Env env, Napi::Function emit, std::unordered_map<std::string, std::string> *object) {
         auto obj = Napi::Object::New(env);
@@ -57,7 +57,7 @@ void Server::runServer(ServerContext *context, int port) {
     while (true) {
         FD_ZERO(&readFDSet);
         FD_SET(server, &readFDSet);
-        for (const auto ssl: clients) {
+        for (const auto &[ssl, ip]: clients) {
             FD_SET(SSL_get_fd(ssl), &readFDSet);
         }
         select(FD_SETSIZE, &readFDSet, nullptr, nullptr, nullptr);
@@ -85,19 +85,15 @@ void Server::runServer(ServerContext *context, int port) {
             if (context->fn.BlockingCall(&context->data, callback) != napi_ok) {
                 Napi::Error::Fatal("ThreadEntry", "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
             }
-            clients.emplace(ssl);
+            clients.emplace(ssl, inet_ntoa(in.sin_addr));
         } else {
             SSL *sslToRemove = nullptr;
-            for (const auto ssl: clients) {
+            for (const auto &[ssl, ip]: clients) {
                 sslToRemove = nullptr;
                 auto connection = SSL_get_fd(ssl);
                 if (!FD_ISSET(connection, &readFDSet)) { // no data from client
                     continue;
                 }
-                struct sockaddr_in in;
-                socklen_t size = sizeof(in);
-                getpeername(connection, (struct sockaddr *) &in, &size);
-
                 char totalLenBuf[sizeof(size_t)] = {0};
                 auto len = SSL_read(ssl, totalLenBuf, sizeof(totalLenBuf));
                 auto totalLen = *((size_t *) totalLenBuf);
@@ -105,7 +101,7 @@ void Server::runServer(ServerContext *context, int port) {
                 if (len <= 0) { // client disconnected
                     auto error = SSL_get_error(ssl, len);
                     if (error == SSL_ERROR_SSL || error == SSL_ERROR_SYSCALL || error == SSL_ERROR_ZERO_RETURN) {
-                        context->data = {{"type", "disconnection"}, {"ip", inet_ntoa(in.sin_addr)}};
+                        context->data = {{"type", "disconnection"}, {"ip", ip}};
                         if (context->fn.BlockingCall(&context->data, callback) != napi_ok) {
                             Napi::Error::Fatal("ThreadEntry",
                                                "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
@@ -125,7 +121,7 @@ void Server::runServer(ServerContext *context, int port) {
                         break;
                     }
                 }
-                context->data = {{"type", "message"}, {"data", data}, {"ip", inet_ntoa(in.sin_addr)}};
+                context->data = {{"type", "message"}, {"data", data}, {"ip", ip}};
                 if (context->fn.BlockingCall(&context->data, callback) != napi_ok) {
                     Napi::Error::Fatal("ThreadEntry", "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
                 }

@@ -38,6 +38,7 @@ export const ChatRoom = observer(({ client }) => {
         });
         ipcRenderer.on('disconnection', (event, { ip }) => {
             notificationStore.enqueueInfo(`Disconnection from ${ip}`);
+            connectionStore.connections[ip]?.disconnect();
             connectionStore.removeConnection(ip);
         });
         ipcRenderer.on('message', async (event, { ip, data }) => {
@@ -47,10 +48,10 @@ export const ChatRoom = observer(({ client }) => {
             connect(ip);
         });
         ipcRenderer.on('error', (event, { message }) => {
-            notificationStore.enqueueError(`Disconnection from ${message}`);
+            notificationStore.enqueueError(`Error: ${message}`);
         });
         window.addEventListener('unload', () => {
-            Object.values(connectionStore.connections).map(i => i.disconnect());
+            Object.values(connectionStore.connections).map(connection => connection.disconnect());
         });
     }, []);
     const handleViewCert = (ip) => (event) => {
@@ -70,45 +71,42 @@ export const ChatRoom = observer(({ client }) => {
         connect(ip);
     }
     return (
-        <>
-            <PasswordDialog />
-            <div className={classes.container}>
-                <List component="nav" className={classes.list}>
-                    <div className={classes.listItems}>
-                        {messageStore.ips.map(i => (
-                            <ListItem
-                                button
-                                selected={ip === i}
-                                onClick={() => setIP(i)}
-                                key={i}
-                            >
-                                <ListItemText
-                                    primary={<Typography color={connectionStore.connections[i] ? 'primary' : 'secondary'}>{i}</Typography>} />
-                                <ListItemSecondaryAction>
-                                    <IconButton edge='end' onClick={handleViewCert(i)} disabled={!connectionStore.connections[i]}>
-                                        <InfoIcon />
-                                    </IconButton>
-                                    <IconButton edge='end' onClick={reconnect(i)} disabled={!!connectionStore.connections[i]}>
-                                        <ConnectIcon />
-                                    </IconButton>
-                                </ListItemSecondaryAction>
-                            </ListItem>
-                        ))}
-                    </div>
-                    <div className={classes.listInput}>
-                        <TextField label="peer IP" variant="outlined" value={input} onChange={(event) => setInput(event.target.value)} />
-                        <IconButton
-                            color='primary'
-                            component='span'
-                            onClick={addConnection}
-                            disabled={!input}
+        <div className={classes.container}>
+            <List component="nav" className={classes.list}>
+                <div className={classes.listItems}>
+                    {messageStore.ips.map(i => (
+                        <ListItem
+                            button
+                            selected={ip === i}
+                            onClick={() => setIP(i)}
+                            key={i}
                         >
-                            <AddIcon />
-                        </IconButton>
-                    </div>
-                </List>
-                {useMemo(() => <Messenger peerIP={ip} />, [ip])}
-            </div>
+                            <ListItemText
+                                primary={<Typography color={connectionStore.connections[i] ? 'primary' : 'secondary'}>{i}</Typography>} />
+                            <ListItemSecondaryAction>
+                                <IconButton edge='end' onClick={handleViewCert(i)} disabled={!connectionStore.connections[i]}>
+                                    <InfoIcon />
+                                </IconButton>
+                                <IconButton edge='end' onClick={reconnect(i)} disabled={!!connectionStore.connections[i]}>
+                                    <ConnectIcon />
+                                </IconButton>
+                            </ListItemSecondaryAction>
+                        </ListItem>
+                    ))}
+                </div>
+                <div className={classes.listInput}>
+                    <TextField label="peer IP" variant="outlined" value={input} onChange={(event) => setInput(event.target.value)} />
+                    <IconButton
+                        color='primary'
+                        component='span'
+                        onClick={addConnection}
+                        disabled={!input}
+                    >
+                        <AddIcon />
+                    </IconButton>
+                </div>
+            </List>
+            {useMemo(() => <Messenger peerIP={ip} />, [ip])}
             <Popover
                 open={Boolean(anchorEl)}
                 anchorEl={anchorEl}
@@ -127,12 +125,12 @@ export const ChatRoom = observer(({ client }) => {
                     <Typography>Issuer: {viewingCert.issuer}</Typography>
                 </Box>
             </Popover>
-        </>
+        </div>
     );
 });
 
 export const ChatRoomWrapper = observer(() => {
-    const { notificationStore, certsStore } = useStores();
+    const { notificationStore, certsStore, messageStore } = useStores();
     const [client, setClient] = useState(null);
     useEffect(() => {
         try {
@@ -148,5 +146,5 @@ export const ChatRoomWrapper = observer(() => {
             certsStore.set(undefined, undefined, undefined);
         }
     }, []);
-    return client ? <ChatRoom client={client} /> : null;
+    return client ? messageStore.initialized ? <ChatRoom client={client} /> : <PasswordDialog /> : null;
 })
