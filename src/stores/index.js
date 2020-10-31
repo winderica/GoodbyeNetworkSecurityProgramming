@@ -1,16 +1,64 @@
-import { action, computed, makeObservable, observable } from 'mobx';
+import { action, computed, makeObservable, observable, toJS } from 'mobx';
+import * as idb from 'idb-keyval';
+import { AES } from '../utils/aes';
 
 class MessageStore {
     @observable
     messages = {};
+
+    @observable
+    encryptedMessages = {};
+
+    @observable
+    initialized = false;
 
     constructor() {
         makeObservable(this);
     }
 
     @action
-    addMessage(ip, message) {
-        this.messages[ip] ? this.messages[ip].push(message) : this.messages[ip] = [message];
+    async load(key) {
+        this.encryptedMessages = await idb.get('data') ?? {};
+        this.aes = new AES(key, key.slice(0, 16));
+        this.messages = Object.fromEntries(
+            await Promise.all(
+                Object.entries(this.encryptedMessages).map(async ([key, value]) => [
+                    key,
+                    await Promise.all(value.map(async i => JSON.parse(await this.aes.decrypt(i))))
+                ])
+            )
+        );
+        this.initialized = true;
+    }
+
+    @action
+    addIP(ip) {
+        if (!this.initialized) {
+            throw new Error('Class `MessageStore` has not been initialized');
+        }
+        if (!this.messages[ip]) {
+            this.messages[ip] = [];
+            this.encryptedMessages[ip] = [];
+        }
+    }
+
+    @action
+    async addMessage(ip, message) {
+        if (!this.initialized) {
+            throw new Error('Class `MessageStore` has not been initialized');
+        }
+        if (!this.messages[ip]) {
+            this.messages[ip] = [];
+            this.encryptedMessages[ip] = [];
+        }
+        this.messages[ip].push(message);
+        this.encryptedMessages[ip].push(await this.aes.encrypt(JSON.stringify(message)));
+        await idb.set('data', toJS(this.encryptedMessages));
+    }
+
+    @computed
+    get ips() {
+        return Object.keys(this.messages);
     }
 }
 

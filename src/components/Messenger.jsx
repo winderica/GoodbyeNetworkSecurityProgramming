@@ -43,9 +43,13 @@ export const Messenger = observer(({ username, peerIP }) => {
     const { notificationStore, messageStore, connectionStore } = useStores();
     const [content, setContent] = useState('');
     const [container, setContainer] = useState(null);
-    const sendMessage = (message) => {
+    const sendMessage = async (message) => {
+        if (!connectionStore.connections[peerIP]) {
+            notificationStore.enqueueError(`尚未连接${peerIP}`);
+            return;
+        }
         connectionStore.connections[peerIP].sendMessage(JSON.stringify(message));
-        messageStore.addMessage(peerIP, message);
+        await messageStore.addMessage(peerIP, message);
     };
     const messages = messageStore.messages[peerIP] || []
 
@@ -83,8 +87,8 @@ export const Messenger = observer(({ username, peerIP }) => {
                 const blob = i.getAsFile();
                 if (blob) {
                     const reader = new FileReader();
-                    reader.onload = () => {
-                        sendMessage(generateMessage(reader.result, true));
+                    reader.onload = async () => {
+                        await sendMessage(generateMessage(reader.result, true));
                     };
                     reader.readAsDataURL(blob);
                 }
@@ -113,8 +117,8 @@ export const Messenger = observer(({ username, peerIP }) => {
         }
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        reader.onload = () => {
-            sendMessage(generateMessage(reader.result, true));
+        reader.onload = async () => {
+            await sendMessage(generateMessage(reader.result, true));
         };
     };
 
@@ -122,24 +126,22 @@ export const Messenger = observer(({ username, peerIP }) => {
         setContent(value);
     };
 
-    const plusOne = () => {
+    const plusOne = async () => {
         const last = messages[messages.length - 1];
         if (last) {
-            sendMessage(generateMessage(last.content, last.isImage));
+            await sendMessage(generateMessage(last.content, last.isImage));
         }
     };
 
-    const send = () => {
-        sendMessage(generateMessage(content));
+    const send = async () => {
+        await sendMessage(generateMessage(content));
         setContent('');
     };
 
     const placeHolders = [
         'ctrl + Enter 以输入回车',
         '可以直接发送剪贴板中的图片',
-        '+1 可以复读',
         '图片大小必须小于5MB',
-        '消息历史最多只有100条',
     ];
     const MessageChip = ({ isSelf, name, time, isImage, content: message }) => (
         <div className={classes.message}>
@@ -152,10 +154,7 @@ export const Messenger = observer(({ username, peerIP }) => {
                     <EnlargeableImage src={message} />
                 ) : (
                     message.split('\n').map((text, index) => (
-                        <span key={index}>
-                                {text}
-                            <br />
-                            </span>
+                        <span key={index}>{text}<br /></span>
                     ))
                 )}
             </div>
