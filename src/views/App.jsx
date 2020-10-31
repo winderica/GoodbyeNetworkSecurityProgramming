@@ -4,7 +4,7 @@ import React from 'react';
 import { observer } from 'mobx-react';
 
 import { theme, useStyles } from '../styles/global';
-import { ChatRoom } from './ChatRoom';
+import { ChatRoomWrapper } from './ChatRoom';
 import { Frame } from '../components/Frame';
 
 export const App = observer(() => {
@@ -14,7 +14,7 @@ export const App = observer(() => {
             <ThemeProvider theme={theme}>
                 <SnackbarProvider maxSnack={5} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
                     <Frame>
-                        <ChatRoom />
+                        <ChatRoomWrapper />
                     </Frame>
                 </SnackbarProvider>
             </ThemeProvider>

@@ -6,36 +6,18 @@ import { useStores } from '../hooks/useStores';
 import { Messenger } from '../components/Messenger'
 import { useStyles } from '../styles/chatRoom';
 import { AddCircle as AddIcon, Cached as ConnectIcon, Info as InfoIcon } from '@material-ui/icons';
-import { addon } from '../utils/addon';
 import { PasswordDialog } from '../components/PasswordDialog';
+import { addon } from '../utils/addon';
 
 const { ipcRenderer } = window.require('electron');
 
-export const ChatRoom = observer(() => {
+export const ChatRoom = observer(({ client }) => {
     const classes = useStyles();
-    const { messageStore, connectionStore, notificationStore, certsStore } = useStores();
+    const { messageStore, connectionStore, notificationStore } = useStores();
     const [ip, setIP] = useState('');
     const [input, setInput] = useState('');
     const [viewingCert, setViewingCert] = useState({});
     const [anchorEl, setAnchorEl] = useState(null);
-    const [client, setClient] = useState(null);
-    useEffect(() => {
-        try {
-            addon.init(certsStore.ca, certsStore.cert, certsStore.key);
-            setClient(new addon.Client());
-            ipcRenderer.send('certs', {
-                ca: certsStore.ca,
-                key: certsStore.key,
-                cert: certsStore.cert
-            });
-        } catch (e) {
-            notificationStore.enqueueError(e.message);
-            certsStore.set(undefined, undefined, undefined);
-        }
-        window.addEventListener('unload', () => {
-            Object.values(connectionStore.connections).map(i => i.disconnect());
-        });
-    }, []);
     const connect = (ip) => {
         if (!connectionStore.connections[ip]) {
             client.connect(ip, 9999, (err, connection) => {
@@ -49,13 +31,6 @@ export const ChatRoom = observer(() => {
             });
         }
     }
-    const handleViewCert = (ip) => (event) => {
-        setAnchorEl(event.currentTarget);
-        setViewingCert(connectionStore.connections[ip]);
-    };
-    const handleClose = () => {
-        setAnchorEl(null);
-    };
     useEffect(() => {
         ipcRenderer.on('connection', (event, { ip }) => {
             notificationStore.enqueueInfo(`Connection from ${ip}`);
@@ -74,7 +49,17 @@ export const ChatRoom = observer(() => {
         ipcRenderer.on('error', (event, { message }) => {
             notificationStore.enqueueError(`Disconnection from ${message}`);
         });
+        window.addEventListener('unload', () => {
+            Object.values(connectionStore.connections).map(i => i.disconnect());
+        });
     }, []);
+    const handleViewCert = (ip) => (event) => {
+        setAnchorEl(event.currentTarget);
+        setViewingCert(connectionStore.connections[ip]);
+    };
+    const handleClose = () => {
+        setAnchorEl(null);
+    };
     const addConnection = () => {
         notificationStore.enqueueInfo(`Connecting to ${input}`);
         connect(input.split('.').map(i => +i).join('.'));
@@ -84,8 +69,7 @@ export const ChatRoom = observer(() => {
         notificationStore.enqueueInfo(`Connecting to ${ip}`);
         connect(ip);
     }
-    const memorizedMessenger = useMemo(() => <Messenger peerIP={ip} />, [ip]);
-    return client ? (
+    return (
         <>
             <PasswordDialog />
             <div className={classes.container}>
@@ -123,7 +107,7 @@ export const ChatRoom = observer(() => {
                         </IconButton>
                     </div>
                 </List>
-                {memorizedMessenger}
+                {useMemo(() => <Messenger peerIP={ip} />, [ip])}
             </div>
             <Popover
                 open={Boolean(anchorEl)}
@@ -144,5 +128,25 @@ export const ChatRoom = observer(() => {
                 </Box>
             </Popover>
         </>
-    ) : null;
+    );
 });
+
+export const ChatRoomWrapper = observer(() => {
+    const { notificationStore, certsStore } = useStores();
+    const [client, setClient] = useState(null);
+    useEffect(() => {
+        try {
+            addon.init(certsStore.ca, certsStore.cert, certsStore.key);
+            setClient(new addon.Client());
+            ipcRenderer.send('certs', {
+                ca: certsStore.ca,
+                key: certsStore.key,
+                cert: certsStore.cert
+            });
+        } catch (e) {
+            notificationStore.enqueueError(e.message);
+            certsStore.set(undefined, undefined, undefined);
+        }
+    }, []);
+    return client ? <ChatRoom client={client} /> : null;
+})
