@@ -9,6 +9,15 @@ auto wrapConnection(SSL *ssl) {
     };
 }
 
+auto wrapDisconnection(SSL *ssl) {
+    return [ssl](const Napi::CallbackInfo &info) {
+        auto sd = SSL_get_fd(ssl);
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+        close(sd);
+    };
+}
+
 int AsyncConnection::initConnection() {
     // resolve host
     auto host = gethostbyname(hostname.c_str());
@@ -58,7 +67,11 @@ void AsyncConnection::Execute() {
 
 void AsyncConnection::OnOK() {
     auto obj = Napi::Object::New(Env());
-    obj.Set(Napi::String::New(Env(), "sendMessage"), Napi::Function::New(Env(), wrapConnection(ssl)));
+    auto cert = SSL_get_peer_certificate(ssl);
+    obj["sendMessage"] = Napi::Function::New(Env(), wrapConnection(ssl));
+    obj["disconnect"] = Napi::Function::New(Env(), wrapDisconnection(ssl));
+    obj["subject"] = Napi::String::New(Env(), X509_NAME_oneline(X509_get_subject_name(cert), nullptr, 0));
+    obj["issuer"] = Napi::String::New(Env(), X509_NAME_oneline(X509_get_issuer_name(cert), nullptr, 0));
     Callback().Call({Env().Null(), obj});
 }
 

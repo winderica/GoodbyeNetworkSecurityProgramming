@@ -1,11 +1,8 @@
 const isDev = process.env.NODE_ENV === 'dev';
 
-const { app, BrowserWindow } = require('electron')
-const cwd = process.cwd();
+const { app, BrowserWindow, ipcMain } = require('electron')
 
 const addon = require(isDev ? '../cpp/build/Debug/youchat-addon' : '../cpp/build/Release/youchat-addon');
-
-addon.init(cwd + "/assets/ca.cert.pem", cwd + "/assets/1.cert.pem", cwd + "/assets/1.private.pem");
 
 app.whenReady().then(async () => {
     const mainWindow = new BrowserWindow({
@@ -14,6 +11,7 @@ app.whenReady().then(async () => {
         webPreferences: {
             nodeIntegration: true,
             nodeIntegrationInWorker: true,
+            enableRemoteModule: true
         },
     });
 
@@ -25,9 +23,14 @@ app.whenReady().then(async () => {
 
     isDev && mainWindow.webContents.openDevTools();
 
-    mainWindow.webContents.once('did-finish-load', () => {
-        const server = new addon.Server();
-        server.serve(9999, mainWindow.webContents.send.bind(mainWindow.webContents));
+    let initialized = false;
+    ipcMain.on('certs', (event, { key, cert, ca }) => {
+        if (!initialized) {
+            initialized = true;
+            addon.init(ca, cert, key);
+            const server = new addon.Server();
+            server.serve(9999, mainWindow.webContents.send.bind(mainWindow.webContents));
+        }
     });
 });
 

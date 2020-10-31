@@ -2,6 +2,36 @@ import { action, computed, makeObservable, observable, toJS } from 'mobx';
 import * as idb from 'idb-keyval';
 import { AES } from '../utils/aes';
 
+class CertsStore {
+    @observable
+    key
+    @observable
+    ca
+    @observable
+    cert
+
+    constructor() {
+        makeObservable(this);
+    }
+
+    @action
+    async load() {
+        this.cert = await idb.get('cert');
+        this.ca = await idb.get('ca');
+        this.key = await idb.get('key');
+    }
+
+    @action
+    async set(ca, cert, key) {
+        this.cert = cert;
+        this.ca = ca;
+        this.key = key;
+        await idb.set('ca', ca);
+        await idb.set('cert', cert);
+        await idb.set('key', key);
+    }
+}
+
 class MessageStore {
     @observable
     messages = {};
@@ -75,6 +105,11 @@ class ConnectionStore {
         this.connections[ip] = connection;
     }
 
+    @action
+    removeConnection(ip) {
+        delete this.connections[ip];
+    }
+
     @computed
     get ips() {
         return Object.keys(this.connections);
@@ -135,6 +170,7 @@ class NotificationStore {
 }
 
 export const stores = {
+    certsStore: new CertsStore(),
     messageStore: new MessageStore(),
     connectionStore: new ConnectionStore(),
     notificationStore: new NotificationStore(),

@@ -49,7 +49,7 @@ void Server::runServer(ServerContext *context, int port) {
         return;
     }
 
-    context->data = {{{"type", "start"}}};
+    context->data = {{"type", "start"}};
     if (context->fn.BlockingCall(&context->data, callback) != napi_ok) {
         Napi::Error::Fatal("runServer", "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
     }
@@ -70,13 +70,18 @@ void Server::runServer(ServerContext *context, int port) {
             auto ssl = SSL_new(ctx);
             SSL_set_fd(ssl, connection);
             if (SSL_accept(ssl) == -1) {
-                context->data = {{{"type", "error"}, {"message", "Failed to accept"}}};
+                context->data = {{"type", "error"}, {"message", "Failed to accept"}};
                 if (context->fn.BlockingCall(&context->data, callback) != napi_ok) {
                     Napi::Error::Fatal("ThreadEntry", "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
                 }
                 continue;
             }
-            context->data = {{{"type", "connection"}, {"ip", inet_ntoa(in.sin_addr)}}};
+            context->data = {
+                {"type", "connection"},
+                {"ip", inet_ntoa(in.sin_addr)},
+                {"subject", X509_NAME_oneline(X509_get_subject_name(SSL_get_peer_certificate(ssl)), nullptr, 0)},
+                {"issuer", X509_NAME_oneline(X509_get_issuer_name(SSL_get_peer_certificate(ssl)), nullptr, 0)},
+            };
             if (context->fn.BlockingCall(&context->data, callback) != napi_ok) {
                 Napi::Error::Fatal("ThreadEntry", "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
             }
@@ -100,7 +105,7 @@ void Server::runServer(ServerContext *context, int port) {
                 if (len <= 0) { // client disconnected
                     auto error = SSL_get_error(ssl, len);
                     if (error == SSL_ERROR_SSL || error == SSL_ERROR_SYSCALL || error == SSL_ERROR_ZERO_RETURN) {
-                        context->data = {{{"type", "disconnection"}, {"ip", inet_ntoa(in.sin_addr)}}};
+                        context->data = {{"type", "disconnection"}, {"ip", inet_ntoa(in.sin_addr)}};
                         if (context->fn.BlockingCall(&context->data, callback) != napi_ok) {
                             Napi::Error::Fatal("ThreadEntry",
                                                "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
@@ -120,7 +125,7 @@ void Server::runServer(ServerContext *context, int port) {
                         break;
                     }
                 }
-                context->data = {{{"type", "message"}, {"data", data}, {"ip", inet_ntoa(in.sin_addr)}}};
+                context->data = {{"type", "message"}, {"data", data}, {"ip", inet_ntoa(in.sin_addr)}};
                 if (context->fn.BlockingCall(&context->data, callback) != napi_ok) {
                     Napi::Error::Fatal("ThreadEntry", "Napi::ThreadSafeNapi::Function.BlockingCall() failed");
                 }
@@ -139,6 +144,7 @@ void Server::runServer(ServerContext *context, int port) {
         }
     }
     context->fn.Release();
+    close(server);
 }
 
 Server::Server(const Napi::CallbackInfo &info) : ObjectWrap(info), env(info.Env()) {
