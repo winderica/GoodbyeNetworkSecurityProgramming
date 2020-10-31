@@ -91,7 +91,7 @@ export const ChatRoom = observer(() => {
                         </IconButton>
                     </div>
                 </List>
-                {useMemo(() => <Messenger username='127.0.0.1' peerIP={ip} />, [ip])}
+                {useMemo(() => <Messenger peerIP={ip} />, [ip])}
                 <Notifier />
             </div>
         </>

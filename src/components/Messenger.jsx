@@ -38,7 +38,7 @@ const EnlargeableImage = ({ src }) => {
     );
 };
 
-export const Messenger = observer(({ username, peerIP }) => {
+export const Messenger = observer(({ peerIP }) => {
     const classes = useStyles();
     const { notificationStore, messageStore, connectionStore } = useStores();
     const [content, setContent] = useState('');
@@ -64,7 +64,6 @@ export const Messenger = observer(({ username, peerIP }) => {
         isSelf: true,
         time: Date.now(),
         isImage,
-        name: username,
     });
 
     const handleKey = (event) => {
@@ -143,10 +142,10 @@ export const Messenger = observer(({ username, peerIP }) => {
         '可以直接发送剪贴板中的图片',
         '图片大小必须小于5MB',
     ];
-    const MessageChip = ({ isSelf, name, time, isImage, content: message }) => (
+    const MessageChip = ({ isSelf, time, isImage, content: message }) => (
         <div className={classes.message}>
             <div className={classNames(isSelf && classes.rightAlign)}>
-                {`${name} - ${new Date(time).toLocaleTimeString('zh-CN', { hour12: false })}`}
+                {new Date(time).toLocaleTimeString('zh-CN', { hour12: false })}
             </div>
             <Divider className={classNames(isSelf && classes.myDivider)} />
             <div className={classes.messageContent}>
