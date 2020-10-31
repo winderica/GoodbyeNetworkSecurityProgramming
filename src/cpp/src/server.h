@@ -1,7 +1,9 @@
 #ifndef _SERVER_H
 #define _SERVER_H
 
-#include <libnet.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <unistd.h>
 #include <unordered_set>
 #include <thread>
 #include "ssl.h"

@@ -1,7 +1,9 @@
 #ifndef _CLIENT_H
 #define _CLIENT_H
 
-#include <libnet.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <unistd.h>
 #include "ssl.h"
 
 class AsyncConnection : public Napi::AsyncWorker {
