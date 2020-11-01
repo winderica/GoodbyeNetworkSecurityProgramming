@@ -74,13 +74,7 @@ class MessageStore {
 
     @action
     async addMessage(ip, message) {
-        if (!this.initialized) {
-            throw new Error('Class `MessageStore` has not been initialized');
-        }
-        if (!this.messages[ip]) {
-            this.messages[ip] = [];
-            this.encryptedMessages[ip] = [];
-        }
+        this.addIP(ip);
         this.messages[ip].push(message);
         this.encryptedMessages[ip].push(await this.aes.encrypt(JSON.stringify(message)));
         await idb.set('data', toJS(this.encryptedMessages));

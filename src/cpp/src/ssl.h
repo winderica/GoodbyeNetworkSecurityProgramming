@@ -2,6 +2,7 @@
 #define _SSL_H
 
 #include <napi.h>
+#include <bits/stdc++.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 

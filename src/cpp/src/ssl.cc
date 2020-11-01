@@ -3,14 +3,14 @@
 int verifyCallback(int status, X509_STORE_CTX *ctx) {
     // check status
     if (status != 1) {
-//        std::cerr << "Failed to verify: " << X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)) <<std::endl;
+        std::cerr << "Failed to verify: " << X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)) << std::endl;
         return 0;
     }
     // display cert info
-//    auto cert = X509_STORE_CTX_get_current_cert(ctx);
-//    std::cout << "Peer certificate:" << endl
-//         << "Subject: " << X509_NAME_oneline(X509_get_subject_name(cert), nullptr, 0) << endl
-//         << "Issuer: " << X509_NAME_oneline(X509_get_issuer_name(cert), nullptr, 0) << endl;
+    auto cert = X509_STORE_CTX_get_current_cert(ctx);
+    std::cout << "Peer certificate:" << std::endl
+              << "Subject: " << X509_NAME_oneline(X509_get_subject_name(cert), nullptr, 0) << std::endl
+              << "Issuer: " << X509_NAME_oneline(X509_get_issuer_name(cert), nullptr, 0) << std::endl;
     return 1;
 }
 
